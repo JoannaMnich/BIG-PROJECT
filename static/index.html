@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>My Book Library</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.1/jquery.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            margin: 40px;
+        }
+        h1 { color: #343a40; text-align: center; }
+
+        /* Form style */
+        .form-container {
+            width: 90%; margin: 20px auto; background: white; padding: 20px;
+            border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .form-container input { padding: 8px; margin-right: 5px; border: 1px solid #ccc; border-radius: 4px; }
+
+        /* Table style */
+        table {
+            width: 90%; margin: 20px auto; border-collapse: collapse;
+            background: white; box-shadow: 0 4px 8px rgba(0,0,0,0.1); border-radius: 8px;
+        }
+        th {
+            background-color: #007bff; color: white; padding: 15px;
+            text-transform: uppercase; text-align: left;
+        }
+        td { padding: 12px 15px; border-bottom: 1px solid #dee2e6; text-align: left; }
+        tr:hover { background-color: #f1f1f1; }
+
+        /* Buttons */
+        .btn-add { background-color: #28a745; color: white; border: none; padding: 10px 20px; cursor: pointer; border-radius: 4px; }
+        .btn-update { background-color: #f39c12; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 4px; }
+        .btn-delete { background-color: #e74c3c; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+    <h1>My Library Database</h1>
+
+    <div class="form-container">
+        <h3>Add / Edit Book</h3>
+        <input type="hidden" id="id-input">
+        <input type="text" id="title-input" placeholder="Title">
+        <input type="text" id="author-input" placeholder="Author">
+        <input type="number" id="year-input" placeholder="Year">
+        <input type="number" id="price-input" step="0.01" placeholder="Price">
+        <button class="btn-add" id="add-button" onclick="doCreate()">Add Book</button>
+    </div>
+    <div style="width: 90%; margin: 20px auto;">
+    <h4 style="color: #555;">
+        Total books in collection: <span id="bookCountBadge" style="background-color: #007bff; color: white; padding: 5px 12px; border-radius: 20px; font-size: 0.9em;">0</span>
+    </h4>
+    </div>
+
+    <table id="bookTable">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Title</th>
+                <th>Author</th>
+                <th>Year</th>
+                <th>Price</th>
+                <th>AI Description</th><th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            </tbody>
+    </table>
+
+    <script>
+    // 1. Download all books (Read)
+    function getAllBooks() {
+    $.ajax({
+        url: "/books",
+        method: "GET",
+        cache:false,
+        dataType: "JSON",
+        success: function(results) {
+            // Book counting
+            $("#bookCountBadge").text(results.length);
+
+            $("#bookTable tbody").empty();
+            results.forEach(function(book) {
+                var id = book.id;
+                var title = book.title;
+                var author = book.author;
+                var year =  book.year;
+                var price = book.price;
+                var formattedPrice = parseFloat(price).toFixed(2);
+                var description = book.description || "<i>No description available</i>";
+
+                $("#bookTable tbody").append(
+                    "<tr>" +
+                        "<td>" + id + "</td>" +
+                        "<td>" + title + "</td>" +
+                        "<td>" + author + "</td>" +
+                        "<td>" + year + "</td>" +
+                        "<td>€" + formattedPrice + "</td>" +
+                        "<td>" + description + "</td>" +
+                        "<td>" +
+                            "<button class='btn-update' onclick='showUpdate(this)'>Update</button> " +
+                            "<button style='background-color: #9b59b6; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 4px;' onclick='doMagicAI(" + id + ")'>✨ AI Gen</button> " +
+                            "<button class='btn-delete' onclick='doDelete(" + id + ")'>Delete</button>" +
+                        "</td>" +
+                    "</tr>"
+                );
+            });
+        },
+        error: function(xhr, status, error) {
+            console.log("Error: " + error);
+        }
+    });
+}
+    // 2. Add new book (Create)
+    function doCreate() {
+        var book = {
+            Title: $('#title-input').val(),
+            Author: $('#author-input').val(),
+            Year: $('#year-input').val(),
+            Price: $('#price-input').val()
+        };
+
+        // --- VALIDATION ---
+        if (book.Title === "" || book.Author === "") {
+            alert("Title and Author cannot be empty!");
+            return;
+        }
+
+        if (book.Year === "" || book.Price === "") {
+            alert("Please enter Year and Price!");
+            return;
+        }
+
+        if (book.Price < 0) {
+            alert("Price cannot be negative!");
+            return;
+        }
+       // --- END OF VALIDATION ---
+
+        $.ajax({
+            url: "/books",
+            method: "POST",
+            data: JSON.stringify(book),
+            contentType: "application/json",
+            success: function(result) {
+                getAllBooks();
+                clearForm();
+                console.log("Book added successfully");
+            },
+            error: function(xhr, status, error) {
+                alert("Error adding book: " + error);
+            }
+        });
+    }
+
+    // 3. Prepare the form for editing (Populate fields on Update click)
+    function showUpdate(buttonElement) {
+        var row = $(buttonElement).closest("tr");
+
+        var id = row.find("td:nth-child(1)").text();
+        var title = row.find("td:nth-child(2)").text();
+        var author = row.find("td:nth-child(3)").text();
+        var year = row.find("td:nth-child(4)").text();
+        var price = row.find("td:nth-child(5)").text();
+
+        // Populate the input fields
+        $('#id-input').val(id);
+        $('#title-input').val(title);
+        $('#author-input').val(author);
+        $('#year-input').val(year);
+        $('#price-input').val(price);
+
+        // Change the main button to Update mode
+        $('#add-button').text("Save Changes");
+        $('#add-button').attr("onclick", "doUpdate()");
+        $('#add-button').css("background-color", "#f39c12");
+    }
+
+    // 4. Send updated data (Update)
+    function doUpdate() {
+        var id = $('#id-input').val();
+        var book = {
+            Title: $('#title-input').val(),
+            Author: $('#author-input').val(),
+            Year: $('#year-input').val(),
+            Price: $('#price-input').val()
+        };
+
+        $.ajax({
+            url: "/books/" + id,
+            method: "PUT",
+            data: JSON.stringify(book),
+            contentType: "application/json",
+            success: function(result) {
+                getAllBooks();
+                clearForm();
+                // Restore the button to add mode
+                $('#add-button').text("Add Book");
+                $('#add-button').attr("onclick", "doCreate()");
+                $('#add-button').css("background-color", "#28a745");
+            }
+        });
+    }
+
+    // 5. Delete
+    function doDelete(id) {
+        if (confirm("Are you sure you want to delete book #" + id + "?")) {
+            $.ajax({
+                url: "/books/" + id,
+                method: "DELETE",
+                success: function() {
+                    getAllBooks();
+                }
+            });
+        }
+    }
+
+    // 6. Clear form fields
+    function clearForm() {
+        $('#id-input').val('');
+        $('#title-input').val('');
+        $('#author-input').val('');
+        $('#year-input').val('');
+        $('#price-input').val('');
+    }
+
+    // Aplication initialization - load all books when the page is ready
+    $(document).ready(function() {
+        getAllBooks();
+    });
+
+    // 7. AI Description Generation
+    function doMagicAI(id) {
+                // Debug log to track which book ID is being processed
+                console.log("Requesting AI description for ID: " + id);
+                var row = $("#bookTable tbody tr").filter(function() {
+                    return $(this).find("td:first").text() == id;
+                });
+                var descriptionCell = row.find("td:nth-child(6)");
+
+                // Show loading message in the description cell
+                descriptionCell.html("<span style='color: #9b59b6;'>✨ Generowanie...</span>");
+                // Change cursor to indicate processing
+                document.body.style.cursor = 'wait';
+        $.ajax({
+            url: "/books/ai/" + id,
+            method: "POST",
+            // Adding cache: false to prevent caching issues with AI generation
+            cache: false,
+            success: function(result) {
+                document.body.style.cursor = 'default';
+                descriptionCell.text(result.description);
+
+                console.log("Description added locally to table.");
+
+            //Showing the source of the description in an alert
+                alert("Success! Description from: " + result.source);
+
+            },
+            error: function(xhr, status, error) {
+                document.body.style.cursor = 'default';
+                descriptionCell.html("<i>Error generating description</i>");
+                alert("Failed to generate description. Check if server is running.");
+            }
+        });
+    }
+</script>
