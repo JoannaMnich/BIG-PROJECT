@@ -1,4 +1,3 @@
-
 DELETE FROM books;
 INSERT INTO books (id, title, author, year, price, description) VALUES
 (1, 'A Moment in Time Designing a Country Garden', 'Kathryn Herman', 2026, 45, 'The renowned and award-winning landscape designer presents a four-season exploration of her own home...'),
